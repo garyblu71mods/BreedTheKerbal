@@ -43,6 +43,8 @@ namespace BreedTheKerbal
         private GUIStyle _small;
         private GUIStyle _vesselHdr;
         private GUIStyle _warnStyle;
+        private GUIStyle _effWarnStyle;
+        private GUIStyle _effCritStyle;
 
         // Stable tooltip state — committed at end of each Repaint pass so
         // Layout and Repaint always agree on how many BeginArea groups to open.
@@ -307,7 +309,10 @@ namespace BreedTheKerbal
             DrawBar(barArea, progress, barCol);
 
             // Efficiency %
-            GUILayout.Label($" {eff * 100f:F0}%", GUILayout.Width(40));
+            GUIStyle effStyle = eff >= 1.0f ? _small
+                              : eff > 0.01f ? _effWarnStyle
+                              : _effCritStyle;
+            GUILayout.Label($" {eff * 100f:F0}%", effStyle, GUILayout.Width(40));
 
             // Time remaining
             bool hasTimer = (stage != LifeStage.Adult || preg || post) && remaining > 0;
@@ -494,7 +499,7 @@ namespace BreedTheKerbal
         {
             float px = Mathf.Clamp(_tooltipPos.x + 16f, 0f, Screen.width  - 270f);
             float py = Mathf.Clamp(_tooltipPos.y - 10f, 0f, Screen.height - 220f);
-            GUILayout.BeginArea(new Rect(px, py, 260f, 220f));
+            GUILayout.BeginArea(new Rect(px, py, 260f, 290f));
             GUILayout.BeginVertical(_tooltipBox);
             DrawTooltipContent(sc, k);
             GUILayout.EndVertical();
@@ -545,6 +550,26 @@ namespace BreedTheKerbal
             }
 
             GUILayout.Label($"Courage: {k.courage:F2}  Stupid: {k.stupidity:F2}", _small);
+
+            // Opis aktywnego debuffa
+            string debuff = DescribeDebuff(sc, d, stage, preg, post, k);
+            if (!string.IsNullOrEmpty(debuff))
+            {
+                GUILayout.Space(4f);
+                GUILayout.Label(debuff, _effWarnStyle);
+            }
+
+            // Licznik braku opiekuna — czas do śmierci
+            if (d != null && d.NoCaretakerTimer > 0.0)
+            {
+                double deathLimit = stage == LifeStage.Newborn ? BreedingConfig.NewbornDeathTimer
+                                  : stage == LifeStage.Child   ? BreedingConfig.ChildDeathTimer
+                                  : -1.0;
+                if (deathLimit > 0.0)
+                    GUILayout.Label(
+                        $"\u26a0 No caretaker!  Dies in: {KTime(deathLimit - d.NoCaretakerTimer)}",
+                        _effCritStyle);
+            }
         }
 
         // ── Low-support tooltip ───────────────────────────────────────────────
@@ -587,6 +612,34 @@ namespace BreedTheKerbal
             if (d > 0) return $"{d}d {h}h";
             if (h > 0) return $"{h}h {m}m";
             return $"{m}m";
+        }
+
+        private static string DescribeDebuff(BreedingScenario sc, KerbalLifeData d,
+            LifeStage stage, bool preg, bool post, ProtoCrewMember k)
+        {
+            if (post)
+                return "\u2193 Postpartum: EVA zablokowane, 0% wydajno\u015bci";
+            if (preg && d != null && d.PregnancyTimer <= BreedingConfig.PregnancyDuration / 2.0)
+                return "\u2193 P\u00f3\u017ana ci\u0105\u017ca: EVA zablokowane, 40% wydajno\u015bci, SAS pilota: poziom 1";
+            switch (stage)
+            {
+                case LifeStage.Newborn:
+                    return "\u2193 Noworodek: EVA zablokowane, 0% wydajno\u015bci";
+                case LifeStage.Child:
+                    return sc.IsLowSupport
+                        ? "\u2193 Dziecko: EVA zablokowane, Low Support \u2192 20% wydajno\u015bci"
+                        : "\u2193 Dziecko: EVA zablokowane, 25% wydajno\u015bci";
+                case LifeStage.Teenager:
+                {
+                    float eff = sc.GetEfficiencyMultiplier(k.name);
+                    if (eff <= BreedingConfig.NoCaretakerTeenagerEfficiency + 0.01f)
+                        return "\u2193 Nastolatek: brak opiekuna \u2192 20% eff, EVA zablokowane";
+                    return sc.IsLowSupport
+                        ? "\u2193 Nastolatek: Low Support \u2192 35% wydajno\u015bci"
+                        : "\u2193 Nastolatek: 50% wydajno\u015bci, 0 gwiazdek do\u015bwiadczenia";
+                }
+            }
+            return string.Empty;
         }
 
         // ── Style initialisation (deferred until skin is available) ───────────
@@ -660,6 +713,20 @@ namespace BreedTheKerbal
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
                 normal    = { textColor = Color.white }
+            };
+
+            _effWarnStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize  = 10,
+                fontStyle = FontStyle.Bold,
+                normal    = { textColor = new Color(1.00f, 0.65f, 0.10f) }
+            };
+
+            _effCritStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize  = 10,
+                fontStyle = FontStyle.Bold,
+                normal    = { textColor = new Color(1.00f, 0.25f, 0.25f) }
             };
         }
     }

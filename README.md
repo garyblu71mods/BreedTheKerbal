@@ -1,191 +1,220 @@
 # BreedTheKerbal
 
-A KSP 1.x mod that adds a full life-cycle system to your Kerbals — pregnancy, birth, childhood, and aging — with gameplay consequences for Career, Science, and Sandbox modes.
+A KSP 1.x mod that adds a full Kerbal life-cycle — pregnancy, birth, childhood and aging —
+with real gameplay consequences for EVA, piloting, science labs, resource harvesters,
+career upkeep costs and crew caretaking.
 
 ---
 
 ## Requirements
 
-| Item | Requirement |
+| Item | Version / Note |
 |---|---|
-| KSP version | 1.x (tested on 1.12) |
-| Game mode | All (Career features only active in Career) |
-| Vessel for breeding | Must have a **Science Lab** AND at least one part with **crew capacity ≥ 4** |
+| KSP | 1.x (tested on 1.12) |
+| Game mode | All — Career-specific features activate only in Career mode |
+| Breeding vessel | Must have a **Science Lab** AND a part with **crew capacity >= 4** |
 
 ---
 
 ## Installation
 
-1. Copy `BreedTheKerbal.dll` into `GameData/BreedTheKerbal/`
-2. Launch KSP — the Colony Manager button appears in the toolbar (flight scene and Space Centre)
+1. Build the project (Visual Studio) or download a release `.dll`.
+2. Copy `BreedTheKerbal.dll` **and** `BreedTheKerbal.cfg` into `GameData/BreedTheKerbal/`.
+3. Launch KSP — the **Colony Manager** toolbar button appears in the Flight and Space Centre scenes.
 
 ---
 
 ## Life Stages
 
-Every Kerbal born through the mod passes through four stages before becoming a full crew member.
+Every Kerbal born through the mod passes through four stages.
 
 ```
-[Born] → Newborn (50 days) → Child (100 days) → Teenager (150 days) → Adult
+[Born] -> Newborn (50 days) -> Child (100 days) -> Teenager (150 days) -> Adult
 ```
 
-All durations are in **Kerbin days** (1 Kerbin day = 6 hours real-time).
+All durations are in **Kerbin days** (1 Kerbin day = 6 h real-time).
+They can be changed in `BreedTheKerbal.cfg` without recompiling.
 
-| Stage | Duration | Can EVA? | Science Lab efficiency |
-|---|---|---|---|
-| **Newborn** | 50 days | ✗ | 0 % |
-| **Child** | 100 days | ✗ | 25 % |
-| **Teenager** | 150 days | ✓ | 50 % |
-| **Adult** | — | ✓ | 100 % |
+---
 
-> Efficiency shown is the **multiplier applied to `dataProcessingMultiplier`** of every Science Lab on the vessel. The **minimum** efficiency across all crew members is used — one Newborn on a lab vessel tanks the whole lab.
+## Restrictions per Stage
+
+### Newborn & Child
+
+| Rule | Detail |
+|---|---|
+| EVA | Blocked — portrait button permanently grayed out |
+| Experience level | Forced to **0** (no bonuses while in vessel) |
+| Science Lab / Harvester | 0 % / 25 % efficiency (see table below) |
+| Caretaker | Adult crew member **required** on same vessel — death clock if absent |
+| Movement (Newborn) | Warning shown when moved without an adult present |
+
+### Teenager
+
+| Rule | Detail |
+|---|---|
+| EVA | Grayed out while **no adult is on EVA within 200 m** |
+| EVA with chaperone present | Allowed |
+| Chaperone leaves during EVA | SAS disabled, jetpack thrust drops to **2 %** of normal |
+| Experience level | Forced to **0** |
+| Science Lab / Harvester | 50 % efficiency (20 % without caretaker on vessel) |
+
+### Adult — Pregnant (first half)
+
+| Rule | Detail |
+|---|---|
+| EVA | Allowed |
+| Pilot SAS modes | Full |
+| Science Lab / Harvester | 100 % efficiency |
+
+### Adult — Pregnant (second half)
+
+| Rule | Detail |
+|---|---|
+| EVA | Grayed out |
+| Pilot experience | Forced to **level 1** — only basic SAS hold (T key), no autopilot modes |
+| Science Lab / Harvester | **40 %** efficiency |
+
+### Adult — Postpartum
+
+| Rule | Detail |
+|---|---|
+| EVA | Grayed out |
+| Science Lab / Harvester | **0 %** efficiency |
+| Duration | 10 Kerbin days |
+
+After postpartum ends all restrictions lift and the pilot experience level is **automatically restored** from accumulated XP.
 
 ---
 
 ## Breeding
 
-### Requirements (per vessel)
-- At least one part with **crew capacity ≥ 4** (large habitat)
-- A **Science Lab** part
-- At least one **adult male** and one **adult female**
-- The female must not be pregnant or postpartum
-- At least **one free seat** on the vessel (reserved automatically during pregnancy)
+### Vessel requirements
+- Part with **crew capacity >= 4** (large habitat)
+- **Science Lab** present
+- At least one **adult male** and one **adult female** (not pregnant / postpartum)
+- At least **one free seat** (auto-reserved during pregnancy)
 
-### Manual breeding (default)
-Open the **Colony Manager** window → select a male and a female → click **Start Pregnancy**.  
-The button shows reasons if conditions are not met.
+### Manual mode (default)
+Open **Colony Manager** -> select a male and female -> click **Start Pregnancy**.
 
-### Auto breeding
-Disabled by default. Can be enabled by setting `AutoBreeding = true` in `BreedingConfig.cs`.  
-When enabled, any loaded vessel meeting all conditions will automatically start a pregnancy every cycle.
+### Auto mode
+Set `AutoBreeding = true` in `BreedTheKerbal.cfg`.
+Any loaded vessel meeting all conditions will automatically pair once per update cycle.
 
 ---
 
-## Pregnancy & Postpartum
+## Pregnancy -> Birth -> Postpartum
 
-| Phase | Duration | Efficiency penalty |
-|---|---|---|
-| Pregnant | 30 days | −30 % (70 % efficiency) |
-| Postpartum | 10 days | −50 % (50 % efficiency), no EVA |
+```
+Pregnant --(30 days)--> Birth --(10 days postpartum)--> Adult again
+                           |
+                           +-> New Kerbal spawned on vessel (or Available if no free seat)
+```
 
-At the end of pregnancy a new Kerbal is **spawned directly on the vessel** if a free seat exists. If the vessel is full, the newborn is placed in the astronaut complex roster as Available.
+| Phase | EVA | Science / Harvester | Pilot SAS |
+|---|---|---|---|
+| First half (days 0-15) | Yes | 100 % | Full |
+| Second half (days 15-30) | No (gray) | 40 % | Level 1 only |
+| Postpartum (10 days) | No (gray) | 0 % | — |
 
 ---
 
 ## Genetics
 
-Offspring trait (Pilot / Scientist / Engineer) is determined by both parents:
+Offspring trait is determined by both parents:
 
-| Parents | Result |
+| Parents | Outcome |
 |---|---|
-| Same + Same | 96 % same trait, 2 % each other trait |
+| Same + Same | 96 % same trait, 2 % each other |
 | Mixed (e.g. Pilot + Scientist) | 48 % trait A, 48 % trait B, 4 % third trait |
 
-Gender is always **50 % male / 50 % female**, independent of parents.
+Gender is always **50 % male / 50 % female**.
 
 ---
 
 ## Caretaker System
 
-Non-adult Kerbals on a vessel need at least one **adult crew member** present as a caretaker.
-
 | Stage | Effect without caretaker | Death timer |
 |---|---|---|
-| Newborn | Death clock starts | **5 days** |
-| Child | Death clock starts | **15 days** |
-| Teenager | Survives, but efficiency drops to 20 % | — (no death) |
+| Newborn | Death clock starts | **5 Kerbin days** |
+| Child | Death clock starts | **15 Kerbin days** |
+| Teenager | Efficiency drops to **20 %**, survives | no death |
 
-If a caretaker is assigned to the vessel the death clock resets to zero immediately.
+Assigning an adult to the vessel resets the death clock immediately.
 
 ---
 
 ## Career Mode — Daily Upkeep
 
-In Career mode, non-adult Kerbals cost funds every Kerbin day.
+Non-adult Kerbals cost funds every Kerbin day:
 
-| Stage | Cost per day |
+| Stage | Cost / day |
 |---|---|
-| Newborn | 150 funds |
-| Child | 100 funds |
-| Teenager | 50 funds |
-| Adult | 0 funds |
+| Newborn | 150 |
+| Child | 100 |
+| Teenager | 50 |
 
-If funds are **insufficient** the **LOW SUPPORT** state activates:
+If funds are insufficient **LOW SUPPORT** activates:
 
-| Stage | Normal efficiency | Low Support efficiency |
+| Stage | Normal | Low Support |
 |---|---|---|
-| Child | 25 % | 20 % (×0.80) |
-| Teenager (with caretaker) | 50 % | 35 % (×0.70) |
+| Child | 25 % | 20 % (x 0.80) |
+| Teenager (with caretaker) | 50 % | 35 % (x 0.70) |
 
-LOW SUPPORT clears **immediately** when your funds exceed the daily upkeep cost — you do not need to wait until the next payment cycle.
+LOW SUPPORT clears immediately once funds exceed the daily cost.
 
 ---
 
 ## Colony Manager UI
 
-Open via the toolbar button (rocket icon). Available in Flight and Space Centre.
-
-- **Per-vessel sections** — shows every tracked Kerbal with stage badge, progress bar, efficiency %, and time remaining
-- **Hover over a Kerbal name** — tooltip with full stats: stage, timers, partner, caretaker status
-- **Hover over LOW SUPPORT badge** — tooltip explaining the penalty and how to fix it
-- **Pairing panel** — male/female dropdowns + Start Pregnancy button (manual mode)
-- **Header** — shows daily upkeep cost and LOW SUPPORT badge when active
+- Toolbar button available in **Flight** and **Space Centre** scenes.
+- Per-vessel list with stage badge, progress bar, efficiency % and time remaining.
+- **Hover** over a Kerbal name — tooltip with full stats (timers, partner, caretaker status).
+- **Hover** over LOW SUPPORT badge — tooltip with penalty details and fix advice.
+- Pairing panel (manual mode): male / female dropdowns + **Start Pregnancy** button.
 
 ---
 
-## What Affects What — Quick Reference
+## Configuration — BreedTheKerbal.cfg
 
-```
-Vessel has Science Lab + large habitat (cap ≥ 4)
-    └─ Enables breeding (manual or auto)
-    └─ Science Lab efficiency is modified by crew life stages
+No recompile needed — edit the file and restart KSP.
+All durations in **Kerbin seconds** (1 Kerbin day = 21 600 s).
 
-Crew life stage
-    └─ Newborn/Child → no EVA
-    └─ Postpartum female → no EVA
-    └─ Non-adult on lab vessel → reduces dataProcessingMultiplier
-          (minimum across all crew is used)
-
-Caretaker (adult crew member on same vessel)
-    └─ Newborn/Child without caretaker → death after 5 / 15 days
-    └─ Teenager without caretaker → efficiency 20 % instead of 50 %
-
-Career funds
-    └─ Daily deduction: Newborn 150 / Child 100 / Teenager 50
-    └─ Insufficient funds → LOW SUPPORT
-          Child efficiency: 25 % → 20 %
-          Teenager efficiency: 50 % → 35 %
-
-Genetics (father trait + mother trait)
-    └─ Same+Same → 96 % same, 4 % mutation
-    └─ Mixed → 48 % / 48 % / 4 % third trait
-```
-
----
-
-## Configuration
-
-All values are in `BreedingConfig.cs`. Recompile to apply changes.
-
-| Field | Default | Description |
+| Key | Default | Description |
 |---|---|---|
-| `PregnancyDuration` | 30 days | Length of pregnancy |
-| `PostpartumDuration` | 10 days | Postpartum recovery |
-| `NewbornDuration` | 50 days | Time as Newborn |
-| `ChildDuration` | 100 days | Time as Child |
-| `TeenagerDuration` | 150 days | Time as Teenager |
-| `PregnantEfficiency` | 0.70 | Science lab multiplier while pregnant |
-| `PostpartumEfficiency` | 0.50 | Science lab multiplier postpartum |
-| `NewbornEfficiency` | 0.00 | Science lab multiplier for Newborn |
-| `ChildEfficiency` | 0.25 | Science lab multiplier for Child |
-| `TeenagerEfficiency` | 0.50 | Science lab multiplier for Teenager |
-| `NoCaretakerTeenagerEfficiency` | 0.20 | Teenager without caretaker |
-| `LowSupportChildFactor` | 0.80 | Low Support penalty multiplier for Child |
-| `LowSupportTeenagerFactor` | 0.70 | Low Support penalty multiplier for Teenager |
-| `NewbornDeathTimer` | 5 days | Time before Newborn dies without caretaker |
-| `ChildDeathTimer` | 15 days | Time before Child dies without caretaker |
-| `NewbornDailyCost` | 150 | Career funds per Kerbin day (Newborn) |
-| `ChildDailyCost` | 100 | Career funds per Kerbin day (Child) |
-| `TeenagerDailyCost` | 50 | Career funds per Kerbin day (Teenager) |
-| `HabitatMinCrewCapacity` | 4 | Minimum part crew capacity for habitat check |
-| `AutoBreeding` | false | Enable fully automatic pairing |
+| `PregnancyDuration` | 648000 (30 d) | Length of pregnancy |
+| `PostpartumDuration` | 216000 (10 d) | Postpartum recovery |
+| `NewbornDuration` | 1080000 (50 d) | Time as Newborn |
+| `ChildDuration` | 2160000 (100 d) | Time as Child |
+| `TeenagerDuration` | 3240000 (150 d) | Time as Teenager |
+| `NewbornDeathTimer` | 108000 (5 d) | Newborn death without caretaker |
+| `ChildDeathTimer` | 324000 (15 d) | Child death without caretaker |
+| `LatePregnancyEfficiency` | 0.40 | Efficiency — second half of pregnancy |
+| `PostpartumEfficiency` | 0.00 | Efficiency during postpartum |
+| `NewbornEfficiency` | 0.00 | Newborn efficiency |
+| `ChildEfficiency` | 0.25 | Child efficiency |
+| `TeenagerEfficiency` | 0.50 | Teenager efficiency (with caretaker) |
+| `NoCaretakerTeenagerEfficiency` | 0.20 | Teenager efficiency (no caretaker) |
+| `LowSupportChildFactor` | 0.80 | Low Support multiplier for Child |
+| `LowSupportTeenagerFactor` | 0.70 | Low Support multiplier for Teenager |
+| `NewbornDailyCost` | 150 | Career funds / Kerbin day (Newborn) |
+| `ChildDailyCost` | 100 | Career funds / Kerbin day (Child) |
+| `TeenagerDailyCost` | 50 | Career funds / Kerbin day (Teenager) |
+| `HabitatMinCrewCapacity` | 4 | Minimum part crew capacity for habitat |
+| `AutoBreeding` | false | Enable automatic pairing |
+
+---
+
+## Debug Shortcuts (Debug builds only)
+
+| Shortcut | Action |
+|---|---|
+| Alt + Shift + B | Print all Kerbal life-stage statuses to screen |
+| Alt + Shift + N | Advance all non-adult Kerbals one stage forward |
+
+---
+
+## License
+
+MIT — free to use, modify and redistribute with attribution.

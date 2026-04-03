@@ -1,0 +1,25 @@
+# Build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# DLL output (copied to GameData)
+*.dll
+*.pdb
+
+# Visual Studio
+*.ncb
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+
+# NuGet
+packages/
+*.nupkg
+
+# OS
+Thumbs.db
+.DS_Store

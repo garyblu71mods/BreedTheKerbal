@@ -300,6 +300,7 @@ namespace BreedTheKerbal
                 if (!v.loaded)                 continue;
                 if (!VesselHasScienceLab(v))   continue;
                 if (!VesselHasLargeHabitat(v)) continue;
+                if (GetVesselFreeSeats(v) < 1) continue;   // need a free berth for the newborn
 
                 List<ProtoCrewMember> crew = v.GetVesselCrew();
                 if (!crew.Any(IsAdult))        continue;   // need at least one caretaker

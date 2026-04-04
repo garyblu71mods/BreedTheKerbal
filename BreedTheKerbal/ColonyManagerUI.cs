@@ -103,6 +103,11 @@ namespace BreedTheKerbal
 
         private static Texture2D BuildIcon()
         {
+            // Load from GameDatabase (BreedTheKerbal/BTK_icon.png in GameData)
+            Texture2D loaded = GameDatabase.Instance?.GetTexture("BreedTheKerbal/BTK_icon", false);
+            if (loaded != null) return loaded;
+
+            // Fallback — procedural pink circle
             var t = new Texture2D(38, 38, TextureFormat.ARGB32, false);
             for (int y = 0; y < 38; y++)
             for (int x = 0; x < 38; x++)
@@ -362,8 +367,8 @@ namespace BreedTheKerbal
                 _parentPopupKerbal = (_parentPopupKerbal == k.name) ? null : k.name;
                 if (_parentPopupKerbal != null)
                     _parentPopupRect = new Rect(
-                        Mathf.Clamp(Event.current.mousePosition.x - 110f, 0f, Screen.width  - 220f),
-                        Mathf.Clamp(Event.current.mousePosition.y +   5f, 0f, Screen.height - 200f),
+                        Mathf.Clamp(_tooltipPos.x - 110f, 0f, Screen.width  - 220f),
+                        Mathf.Clamp(_tooltipPos.y +   5f, 0f, Screen.height - 200f),
                         220f, 60f);
                 Event.current.Use();
             }
@@ -390,8 +395,8 @@ namespace BreedTheKerbal
                     _bonusPopupKerbal = (_bonusPopupKerbal == k.name) ? null : k.name;
                     if (_bonusPopupKerbal != null)
                         _bonusPopupRect = new Rect(
-                            Mathf.Clamp(Event.current.mousePosition.x - 110f, 0f, Screen.width  - 220f),
-                            Mathf.Clamp(Event.current.mousePosition.y +   5f, 0f, Screen.height - 300f),
+                            Mathf.Clamp(_tooltipPos.x - 110f, 0f, Screen.width  - 220f),
+                            Mathf.Clamp(_tooltipPos.y +   5f, 0f, Screen.height - 300f),
                             220f, 60f);
                     Event.current.Use();
                 }

@@ -73,6 +73,7 @@ They can be changed in `BreedTheKerbal.cfg` without recompiling.
 - EVA button **grayed out** when no adult is on EVA within 200 m.
 - When a chaperone IS on EVA the button becomes available.
 - If the chaperone **boards back** while the teen is on EVA:
+  - SAS is disabled immediately.
   - Jetpack thrust drops to **2%** of normal (translation still works).
 - Experience level forced to **0**.
 - Efficiency 50% with caretaker on vessel, 20% without.
@@ -164,50 +165,17 @@ LOW SUPPORT clears immediately once funds exceed the daily cost.
 
 ---
 
-## Aging Speed Bonuses
-
-Non-adult Kerbals accumulate age at a speed that can be raised or lowered by vessel conditions.
-The **Colony Manager** shows the net modifier in the `+X%` column next to each Kerbal.
-Click the `+X%` label to open a per-factor breakdown popup.
-
-| Condition | Modifier |
-|---|---|
-| Each Cupola Module on vessel (max 3) | +5% per cupola |
-| Vessel landed or splashed | +10% |
-| Active CommNet connection to home | +2% |
-| Scientist as best caretaker-adult on vessel | +5% |
-| Engineer as best caretaker-adult on vessel | +3% |
-| Both biological parents on same vessel | +5% |
-| No biological parents on vessel | −5% |
-| Crew count > 75% of vessel capacity | −5% |
-| Low Support active | −10% |
-
-Modifiers are **additive**. A negative total slows aging below base rate.
-All thresholds and values are configurable in `BreedTheKerbal.cfg`.
-
----
-
 ## Colony Manager UI
 
 - Toolbar button: **Flight** and **Space Centre** scenes.
-- Per-vessel list with stage badge, progress bar, **efficiency %** (orange = penalty, red = 0%), time remaining, and aging speed bonus column.
-
-### Click interactions
-
-| Click target | Result |
-|---|---|
-| **Kerbal name** | Popup — parents' names, trait, experience stars |
-| **+X% / ±0%** aging label | Popup — per-factor aging speed breakdown with total |
-| Clicking outside a popup | Closes the popup |
-
-### Hover interactions
-
-| Hover target | Result |
-|---|---|
-| **Kerbal name** | Tooltip — stage, trait, stars, efficiency, active penalty, caretaker death countdown |
-| **LOW SUPPORT** badge | Tooltip — penalty breakdown and how to fix |
-
-- Pairing panel (manual mode): male / female selectors + **Start Pregnancy** button.
+- Per-vessel list with stage badge, progress bar, **efficiency %** (orange = penalty, red = 0%), and time remaining.
+- **Hover over a Kerbal name** — tooltip shows:
+  - Stage, trait, experience stars, current efficiency
+  - Active penalty description in **orange** (e.g. "Child: EVA blocked, 25% efficiency")
+  - **Caretaker death countdown in red** if Newborn/Child has no adult on vessel
+  - Time until next life stage / birth / recovery
+- **Hover over LOW SUPPORT badge** — shows penalty breakdown and how to fix.
+- Pairing panel (manual mode): male / female dropdowns + **Start Pregnancy** button.
 
 ---
 
@@ -238,17 +206,6 @@ All durations in **Kerbin seconds** (1 Kerbin day = 21 600 s).
 | `TeenagerDailyCost` | 50 | Career funds / Kerbin day (Teenager) |
 | `HabitatMinCrewCapacity` | 4 | Minimum part crew capacity for habitat |
 | `AutoBreeding` | false | Enable automatic pairing |
-| `CupolaAgingBonusPerUnit` | 0.05 | Aging bonus per Cupola Module (+5%) |
-| `CupolaAgingMaxCount` | 3 | Maximum cupolas counted toward the bonus |
-| `LandedAgingBonus` | 0.10 | Bonus when landed or splashed (+10%) |
-| `CommNetBonus` | 0.02 | Bonus when connected to home via CommNet (+2%) |
-| `BothParentsAgingBonus` | 0.05 | Bonus when both parents are on board (+5%) |
-| `NoParentsAgingPenalty` | 0.05 | Penalty when no parents are on board (−5%) |
-| `ScientistCaretakerBonus` | 0.05 | Bonus for Scientist as best adult caretaker (+5%) |
-| `EngineerCaretakerBonus` | 0.03 | Bonus for Engineer as best adult caretaker (+3%) |
-| `OvercrowdingThreshold` | 0.75 | Crew/capacity ratio above which penalty applies |
-| `OvercrowdingPenalty` | 0.05 | Penalty when vessel is overcrowded (−5%) |
-| `LowSupportAgingPenalty` | 0.10 | Aging speed penalty when Low Support is active (−10%) |
 
 ---
 

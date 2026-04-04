@@ -45,6 +45,8 @@ namespace BreedTheKerbal
         private GUIStyle _warnStyle;
         private GUIStyle _effWarnStyle;
         private GUIStyle _effCritStyle;
+        private GUIStyle _bonusPosStyle;
+        private GUIStyle _bonusNegStyle;
 
         // Stable tooltip state — committed at end of each Repaint pass so
         // Layout and Repaint always agree on how many BeginArea groups to open.
@@ -57,6 +59,14 @@ namespace BreedTheKerbal
         private GUIStyle        _tooltipBox;
         private GUIStyle        _tooltipName;
         private GUIStyle        _portStyle;
+
+        // Aging-breakdown popup (click on the +X% label)
+        private string  _bonusPopupKerbal;   // null = closed
+        private Rect    _bonusPopupRect = new Rect(200f, 200f, 220f, 60f);
+
+        // Parents popup (click on Kerbal name)
+        private string  _parentPopupKerbal;  // null = closed
+        private Rect    _parentPopupRect = new Rect(200f, 270f, 220f, 60f);
 
         private struct PairSelection
         {
@@ -134,6 +144,39 @@ namespace BreedTheKerbal
 
             if (_lowSupportHovered && BreedingScenario.Instance != null)
                 DrawLowSupportTooltip(BreedingScenario.Instance);
+
+            // Aging breakdown popup — click-toggled, stays open until closed or re-clicked
+            if (_bonusPopupKerbal != null && BreedingScenario.Instance != null)
+            {
+                _bonusPopupRect = GUILayout.Window(
+                    GetInstanceID() + 10, _bonusPopupRect,
+                    DrawBonusPopupWindow, "Aging modifiers",
+                    _winStyle, GUILayout.Width(220), GUILayout.MinHeight(60));
+
+                // Click outside the popup closes it
+                if (Event.current.type == EventType.MouseDown
+                    && !_bonusPopupRect.Contains(Event.current.mousePosition))
+                {
+                    _bonusPopupKerbal = null;
+                    Event.current.Use();
+                }
+            }
+
+            // Parents popup — click on Kerbal name
+            if (_parentPopupKerbal != null && BreedingScenario.Instance != null)
+            {
+                _parentPopupRect = GUILayout.Window(
+                    GetInstanceID() + 11, _parentPopupRect,
+                    DrawParentPopupWindow, "Family",
+                    _winStyle, GUILayout.Width(220), GUILayout.MinHeight(60));
+
+                if (Event.current.type == EventType.MouseDown
+                    && !_parentPopupRect.Contains(Event.current.mousePosition))
+                {
+                    _parentPopupKerbal = null;
+                    Event.current.Use();
+                }
+            }
 
             // Promote pending state to stable at end of each Repaint pass
             if (Event.current.type == EventType.Repaint)
@@ -288,6 +331,19 @@ namespace BreedTheKerbal
                 }
             }
 
+            // Override with danger bar when Newborn/Child has no caretaker
+            if (d != null && d.NoCaretakerTimer > 0.0
+                && (stage == LifeStage.Newborn || stage == LifeStage.Child))
+            {
+                double deathLimit = stage == LifeStage.Newborn
+                    ? BreedingConfig.NewbornDeathTimer
+                    : BreedingConfig.ChildDeathTimer;
+                progress   = 1f - (float)(d.NoCaretakerTimer / deathLimit);
+                remaining  = deathLimit - d.NoCaretakerTimer;
+                barCol     = new Color(1.00f, 0.15f, 0.15f);
+                stageLabel = "⚠ NO CARER";
+            }
+
             GUILayout.BeginHorizontal();
 
             // Portrait placeholder — coloured by life-stage
@@ -295,17 +351,58 @@ namespace BreedTheKerbal
                 GUILayout.Width(32), GUILayout.Height(32));
             DrawPortrait(portRect, k, barCol);
 
-            // Name column — hover to show tooltip
+            // Name column — hover to show tooltip, click to show parents popup
             GUILayout.Label(k.name, GUILayout.Width(112));
             if (Event.current.type == EventType.Repaint
                 && GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition))
                 _nextTooltipKerbal = k;
+            if (Event.current.type == EventType.MouseDown
+                && GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition))
+            {
+                _parentPopupKerbal = (_parentPopupKerbal == k.name) ? null : k.name;
+                if (_parentPopupKerbal != null)
+                    _parentPopupRect = new Rect(
+                        Mathf.Clamp(Event.current.mousePosition.x - 110f, 0f, Screen.width  - 220f),
+                        Mathf.Clamp(Event.current.mousePosition.y +   5f, 0f, Screen.height - 200f),
+                        220f, 60f);
+                Event.current.Use();
+            }
 
             // Stage badge
-            GUILayout.Label(stageLabel, GUILayout.Width(96));
+            GUILayout.Label(stageLabel, GUILayout.Width(86));
+
+            // Aging speed bonus (+X%) — only for non-adults; click to open breakdown popup
+            bool isGrowing = stage != LifeStage.Adult && !preg && !post;
+            if (isGrowing)
+            {
+                double mult       = sc.GetAgingMultiplier(k.name);
+                double bonusPct   = (mult - 1.0) * 100.0;
+                string bonusText  = bonusPct >= 0.5 ? $"+{bonusPct:F0}%"
+                                  : bonusPct < -0.5 ? $"{bonusPct:F0}%"
+                                  : "±0%";
+                GUIStyle bonusSt  = bonusPct >= 0.5 ? _bonusPosStyle
+                                  : bonusPct < -0.5 ? _bonusNegStyle
+                                  : _small;
+                GUILayout.Label(bonusText, bonusSt, GUILayout.Width(42));
+                if (Event.current.type == EventType.MouseDown
+                    && GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition))
+                {
+                    _bonusPopupKerbal = (_bonusPopupKerbal == k.name) ? null : k.name;
+                    if (_bonusPopupKerbal != null)
+                        _bonusPopupRect = new Rect(
+                            Mathf.Clamp(Event.current.mousePosition.x - 110f, 0f, Screen.width  - 220f),
+                            Mathf.Clamp(Event.current.mousePosition.y +   5f, 0f, Screen.height - 300f),
+                            220f, 60f);
+                    Event.current.Use();
+                }
+            }
+            else
+            {
+                GUILayout.Label("", _small, GUILayout.Width(42));
+            }
 
             // Progress bar
-            Rect barArea = GUILayoutUtility.GetRect(128f, 14f, GUILayout.Width(128));
+            Rect barArea = GUILayoutUtility.GetRect(108f, 14f, GUILayout.Width(108));
             DrawBar(barArea, progress, barCol);
 
             // Efficiency %
@@ -572,6 +669,94 @@ namespace BreedTheKerbal
             }
         }
 
+        // ── Parents popup ─────────────────────────────────────────────────────
+
+        private void DrawParentPopupWindow(int id)
+        {
+            BreedingScenario sc = BreedingScenario.Instance;
+            if (sc == null) { GUI.DragWindow(); return; }
+
+            KerbalLifeData d   = sc.GetKerbalDataPublic(_parentPopupKerbal);
+            ProtoCrewMember pcm = HighLogic.CurrentGame?.CrewRoster?[_parentPopupKerbal];
+
+            GUILayout.BeginVertical();
+
+            // Kerbal header
+            GUILayout.Label(_parentPopupKerbal, _tooltipName);
+            if (pcm != null)
+            {
+                string stars = new string('\u2605', pcm.experienceLevel)
+                             + new string('\u2606', 5 - pcm.experienceLevel);
+                GUILayout.Label($"{pcm.trait}  {stars}", _small);
+            }
+
+            GUILayout.Space(4f);
+
+            string mother = (d != null && !string.IsNullOrEmpty(d.MotherName)) ? d.MotherName : "\u2014";
+            string father = (d != null && !string.IsNullOrEmpty(d.FatherName)) ? d.FatherName : "\u2014";
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("\u2640 Mother:", _small, GUILayout.Width(62));
+            GUILayout.Label(mother, _small);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("\u2642 Father:", _small, GUILayout.Width(62));
+            GUILayout.Label(father, _small);
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(4f);
+            if (GUILayout.Button("Close", GUILayout.Height(18)))
+                _parentPopupKerbal = null;
+
+            GUILayout.EndVertical();
+            GUI.DragWindow(new Rect(0, 0, 10000, 22));
+        }
+
+        // ── Aging breakdown popup ─────────────────────────────────────────────
+
+        private void DrawBonusPopupWindow(int id)
+        {
+            BreedingScenario sc = BreedingScenario.Instance;
+            if (sc == null) { GUI.DragWindow(); return; }
+
+            var factors = sc.GetAgingBreakdown(_bonusPopupKerbal);
+
+            GUILayout.BeginVertical();
+
+            if (factors.Count == 0)
+            {
+                GUILayout.Label("No active modifiers (base rate).", _small);
+            }
+            else
+            {
+                double total = 0.0;
+                foreach (var f in factors)
+                {
+                    total += f.Pct;
+                    string sign = f.Pct >= 0.0 ? "+" : "";
+                    GUIStyle st = f.Pct > 0.0 ? _bonusPosStyle : _bonusNegStyle;
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label(f.Label, _small, GUILayout.ExpandWidth(true));
+                    GUILayout.Label($"{sign}{f.Pct:F0}%", st, GUILayout.Width(38));
+                    GUILayout.EndHorizontal();
+                }
+                GUILayout.Space(4f);
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Total speed", _bold, GUILayout.ExpandWidth(true));
+                GUIStyle totalSt = total >= 0.0 ? _bonusPosStyle : _bonusNegStyle;
+                GUILayout.Label($"{100.0 + total:F0}%", totalSt, GUILayout.Width(38));
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.Space(4f);
+            if (GUILayout.Button("Close", GUILayout.Height(18)))
+                _bonusPopupKerbal = null;
+
+            GUILayout.EndVertical();
+            GUI.DragWindow(new Rect(0, 0, 10000, 22));
+        }
+
         // ── Low-support tooltip ───────────────────────────────────────────────
 
         private void DrawLowSupportTooltip(BreedingScenario sc)
@@ -727,6 +912,20 @@ namespace BreedTheKerbal
                 fontSize  = 10,
                 fontStyle = FontStyle.Bold,
                 normal    = { textColor = new Color(1.00f, 0.25f, 0.25f) }
+            };
+
+            _bonusPosStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize  = 10,
+                fontStyle = FontStyle.Bold,
+                normal    = { textColor = new Color(0.40f, 1.00f, 0.45f) }
+            };
+
+            _bonusNegStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize  = 10,
+                fontStyle = FontStyle.Bold,
+                normal    = { textColor = new Color(1.00f, 0.55f, 0.15f) }
             };
         }
     }

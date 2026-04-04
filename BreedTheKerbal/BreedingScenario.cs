@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -172,10 +173,11 @@ namespace BreedTheKerbal
                 ProtoCrewMember k = HighLogic.CurrentGame.CrewRoster[d.KerbalName];
                 if (k == null) { toRemove.Add(d.KerbalName); continue; }
 
-                // Life-stage aging
+                // Life-stage aging — cupola, surface and parents affect growth speed
                 if (d.Stage != LifeStage.Adult && d.AgeTimer > 0.0)
                 {
-                    d.AgeTimer -= dt;
+                    double agingDt = dt * GetAgingMultiplier(k);
+                    d.AgeTimer -= agingDt;
                     if (d.AgeTimer <= 0.0) AdvanceStage(d);
                 }
 
@@ -254,10 +256,24 @@ namespace BreedTheKerbal
             if (d.Stage != LifeStage.Newborn && d.Stage != LifeStage.Child)
                 return false;
 
-            d.NoCaretakerTimer += dt;
             double limit = d.Stage == LifeStage.Newborn
                 ? BreedingConfig.NewbornDeathTimer
                 : BreedingConfig.ChildDeathTimer;
+            double prev = d.NoCaretakerTimer;
+            d.NoCaretakerTimer += dt;
+
+            if (prev == 0.0)
+                ScreenMessages.PostScreenMessage(
+                    $"⚠ {d.KerbalName} has no caretaker! Dies in {limit / KerbinDay:F1} Kerbin days!",
+                    8f, ScreenMessageStyle.UPPER_CENTER);
+            else if (prev < limit * 0.5 && d.NoCaretakerTimer >= limit * 0.5)
+                ScreenMessages.PostScreenMessage(
+                    $"⚠ {d.KerbalName}: no caretaker — {(limit - d.NoCaretakerTimer) / KerbinDay:F1} days left!",
+                    8f, ScreenMessageStyle.UPPER_CENTER);
+            else if (prev < limit * 0.75 && d.NoCaretakerTimer >= limit * 0.75)
+                ScreenMessages.PostScreenMessage(
+                    $"⚠⚠ {d.KerbalName}: CRITICAL — dies in {(limit - d.NoCaretakerTimer) / KerbinDay:F1} days!",
+                    10f, ScreenMessageStyle.UPPER_CENTER);
 
             return d.NoCaretakerTimer >= limit;
         }
@@ -338,7 +354,9 @@ namespace BreedTheKerbal
             {
                 KerbalName = newborn.name,
                 Stage      = LifeStage.Newborn,
-                AgeTimer   = BreedingConfig.NewbornDuration
+                AgeTimer   = BreedingConfig.NewbornDuration,
+                MotherName = motherData.KerbalName,
+                FatherName = motherData.PartnerName
             };
 
             Vessel vessel = FindKerbalVessel(mother);
@@ -377,18 +395,16 @@ namespace BreedTheKerbal
             }
             else
             {
-                // Unloaded vessel (KSC / Tracking Station or distant vessel in flight)
-                // vessel.Parts is empty — must edit the ProtoVessel snapshot directly
-                ProtoPartSnapshot snap = FindHabitatSnap(vessel.protoVessel);
-                Debug.Log($"[BreedTheKerbal] BoardNewborn (unloaded): snap={(snap == null ? "null" : snap.partName + " " + snap.protoModuleCrew.Count + "/" + (snap.partInfo?.partPrefab?.CrewCapacity ?? 0))}");
-                if (snap == null)
-                {
-                    newborn.rosterStatus = ProtoCrewMember.RosterStatus.Available;
-                    Debug.Log("[BreedTheKerbal] BoardNewborn: no free seat on unloaded vessel — newborn stays Available");
-                    return;
-                }
-                snap.protoModuleCrew.Add(newborn);
-                GameEvents.onVesselCrewWasModified.Fire(vessel);
+                // Direct ProtoPartSnapshot.protoModuleCrew manipulation on an unloaded vessel
+                // leaves KSP's parallel crewIndices list out of sync, causing
+                // KerbalRoster.ValidateAssignments to throw ArgumentOutOfRangeException on
+                // every subsequent save attempt.  Leave the newborn Available instead —
+                // the player can board them manually via the Astronaut Complex.
+                newborn.rosterStatus = ProtoCrewMember.RosterStatus.Available;
+                Debug.Log("[BreedTheKerbal] BoardNewborn: vessel unloaded — newborn stays Available (board via Astronaut Complex)");
+                ScreenMessages.PostScreenMessage(
+                    $"{newborn.name} was born but the vessel is unloaded — hire from Astronaut Complex to board!",
+                    10f, ScreenMessageStyle.UPPER_CENTER);
             }
         }
 
@@ -894,6 +910,144 @@ namespace BreedTheKerbal
                 }
             }
             return false;
+        }
+
+        // ── Cupola aging bonus ─────────────────────────────────────────────
+
+        private static int CountCupolas(Vessel v)
+        {
+            if (v == null) return 0;
+            if (v.loaded)
+                return v.Parts.Count(p =>
+                    p.name.IndexOf("cupola", StringComparison.OrdinalIgnoreCase) >= 0);
+            return v.protoVessel?.protoPartSnapshots.Count(s =>
+                s.partName.IndexOf("cupola", StringComparison.OrdinalIgnoreCase) >= 0) ?? 0;
+        }
+
+        private double GetAgingMultiplier(ProtoCrewMember k)
+        {
+            KerbalLifeData d = GetData(k.name);
+            if (d == null || d.Stage == LifeStage.Adult) return 1.0;
+
+            Vessel v = FindKerbalVessel(k);
+            if (v == null) return 1.0;
+
+            double bonus = 0.0;
+
+            // Cupola bonus (max CupolaAgingMaxCount kopuł)
+            int cupolas = Math.Min(CountCupolas(v), BreedingConfig.CupolaAgingMaxCount);
+            bonus += cupolas * (double)BreedingConfig.CupolaAgingBonusPerUnit;
+
+            // Landed / splashed bonus
+            if (v.situation == Vessel.Situations.LANDED ||
+                v.situation == Vessel.Situations.SPLASHED)
+                bonus += BreedingConfig.LandedAgingBonus;
+
+            // CommNet: aktywne połączenie z domem +2%
+            if (v.connection?.IsConnectedHome == true)
+                bonus += BreedingConfig.CommNetBonus;
+
+            System.Collections.Generic.List<ProtoCrewMember> crew = v.GetVesselCrew();
+
+            // Przeciążenie statku: >75% pojemności -5%
+            int totalCap = v.loaded
+                ? v.Parts.Sum(p => p.CrewCapacity)
+                : v.protoVessel?.protoPartSnapshots.Sum(s => s.partInfo?.partPrefab?.CrewCapacity ?? 0) ?? 0;
+            if (totalCap > 0 && (double)crew.Count / totalCap > BreedingConfig.OvercrowdingThreshold)
+                bonus -= BreedingConfig.OvercrowdingPenalty;
+
+            // Trait opiekuna: najlepszy dorosły na pokładzie (Scientist +5%, Engineer +3%)
+            float caretakerBonus = 0f;
+            foreach (ProtoCrewMember m in crew)
+            {
+                if (!IsAdult(m) || m.name == k.name) continue;
+                float tb = m.trait == "Scientist" ? BreedingConfig.ScientistCaretakerBonus
+                         : m.trait == "Engineer"  ? BreedingConfig.EngineerCaretakerBonus : 0f;
+                if (tb > caretakerBonus) caretakerBonus = tb;
+            }
+            bonus += caretakerBonus;
+
+            // Rodzice na pokładzie
+            bool hasMother = !string.IsNullOrEmpty(d.MotherName)
+                             && crew.Any(c => c.name == d.MotherName);
+            bool hasFather = !string.IsNullOrEmpty(d.FatherName)
+                             && crew.Any(c => c.name == d.FatherName);
+
+            if (hasMother && hasFather)
+                bonus += BreedingConfig.BothParentsAgingBonus;   // +5%
+            else if (!hasMother && !hasFather)
+                bonus -= BreedingConfig.NoParentsAgingPenalty;   // -5%
+            // jeden rodzic → ±0%
+
+            // Low Support: niewystarczające fundusze -10%
+            if (_isLowSupport)
+                bonus -= BreedingConfig.LowSupportAgingPenalty;
+
+            return 1.0 + bonus;
+        }
+
+        /// <summary>Public overload for Colony Manager UI.</summary>
+        public double GetAgingMultiplier(string kerbalName)
+        {
+            ProtoCrewMember pcm = HighLogic.CurrentGame?.CrewRoster?[kerbalName];
+            return pcm != null ? GetAgingMultiplier(pcm) : 1.0;
+        }
+
+        /// <summary>Individual aging-speed factors for the breakdown popup.</summary>
+        public List<(string Label, double Pct)> GetAgingBreakdown(string kerbalName)
+        {
+            var result = new List<(string, double)>();
+            ProtoCrewMember k = HighLogic.CurrentGame?.CrewRoster?[kerbalName];
+            if (k == null) return result;
+            KerbalLifeData d = GetData(k.name);
+            if (d == null || d.Stage == LifeStage.Adult) return result;
+            Vessel v = FindKerbalVessel(k);
+            if (v == null) return result;
+
+            int cupolas = Math.Min(CountCupolas(v), BreedingConfig.CupolaAgingMaxCount);
+            if (cupolas > 0)
+                result.Add(($"Cupola \u00d7{cupolas}", cupolas * (double)BreedingConfig.CupolaAgingBonusPerUnit * 100.0));
+
+            if (v.situation == Vessel.Situations.LANDED || v.situation == Vessel.Situations.SPLASHED)
+                result.Add(("Landed / Splashed", (double)BreedingConfig.LandedAgingBonus * 100.0));
+
+            if (v.connection?.IsConnectedHome == true)
+                result.Add(("CommNet connected", (double)BreedingConfig.CommNetBonus * 100.0));
+
+            var crew = v.GetVesselCrew();
+            int totalCap = v.loaded
+                ? v.Parts.Sum(p => p.CrewCapacity)
+                : v.protoVessel?.protoPartSnapshots.Sum(s => s.partInfo?.partPrefab?.CrewCapacity ?? 0) ?? 0;
+            if (totalCap > 0 && (double)crew.Count / totalCap > BreedingConfig.OvercrowdingThreshold)
+                result.Add(("Overcrowded", -(double)BreedingConfig.OvercrowdingPenalty * 100.0));
+
+            float caretakerBonus = 0f;
+            string caretakerLabel = null;
+            foreach (ProtoCrewMember m in crew)
+            {
+                if (!IsAdult(m) || m.name == k.name) continue;
+                float tb = m.trait == "Scientist" ? BreedingConfig.ScientistCaretakerBonus
+                         : m.trait == "Engineer"  ? BreedingConfig.EngineerCaretakerBonus : 0f;
+                if (tb > caretakerBonus)
+                {
+                    caretakerBonus = tb;
+                    caretakerLabel = $"{m.trait} caretaker";
+                }
+            }
+            if (caretakerBonus > 0f)
+                result.Add((caretakerLabel, (double)caretakerBonus * 100.0));
+
+            bool hasMother = !string.IsNullOrEmpty(d.MotherName) && crew.Any(c => c.name == d.MotherName);
+            bool hasFather = !string.IsNullOrEmpty(d.FatherName) && crew.Any(c => c.name == d.FatherName);
+            if (hasMother && hasFather)
+                result.Add(("Both parents on board", (double)BreedingConfig.BothParentsAgingBonus * 100.0));
+            else if (!hasMother && !hasFather)
+                result.Add(("No parents on board", -(double)BreedingConfig.NoParentsAgingPenalty * 100.0));
+
+            if (_isLowSupport)
+                result.Add(("Low Support", -(double)BreedingConfig.LowSupportAgingPenalty * 100.0));
+
+            return result;
         }
 
         // Find any crewable part that has at least one free seat

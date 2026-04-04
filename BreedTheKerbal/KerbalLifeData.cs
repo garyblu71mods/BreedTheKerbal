@@ -11,7 +11,9 @@ namespace BreedTheKerbal
         public double    AgeTimer;           // seconds until next life stage
         public bool      IsPregnant;
         public double    PregnancyTimer;     // seconds remaining in pregnancy
-        public string    PartnerName;        // father's name
+        public string    PartnerName;        // father's name (used during pregnancy)
+        public string    MotherName;         // biological mother (stored on child)
+        public string    FatherName;         // biological father (stored on child)
         public bool      IsPostpartum;
         public double    PostpartumTimer;    // seconds remaining post-partum
         public double    NoCaretakerTimer;   // seconds without a caretaker (death clock)
@@ -24,6 +26,8 @@ namespace BreedTheKerbal
             node.AddValue("isPregnant",       IsPregnant);
             node.AddValue("pregnancyTimer",   PregnancyTimer);
             node.AddValue("partnerName",      PartnerName  ?? string.Empty);
+            node.AddValue("motherName",        MotherName   ?? string.Empty);
+            node.AddValue("fatherName",        FatherName   ?? string.Empty);
             node.AddValue("isPostpartum",     IsPostpartum);
             node.AddValue("postpartumTimer",  PostpartumTimer);
             node.AddValue("noCaretakerTimer", NoCaretakerTimer);
@@ -42,6 +46,8 @@ namespace BreedTheKerbal
             bool  .TryParse(node.GetValue("isPregnant"),       out d.IsPregnant);
             double.TryParse(node.GetValue("pregnancyTimer"),   out d.PregnancyTimer);
             d.PartnerName = node.GetValue("partnerName") ?? string.Empty;
+            d.MotherName  = node.GetValue("motherName")  ?? string.Empty;
+            d.FatherName  = node.GetValue("fatherName")  ?? string.Empty;
             bool  .TryParse(node.GetValue("isPostpartum"),     out d.IsPostpartum);
             double.TryParse(node.GetValue("postpartumTimer"),  out d.PostpartumTimer);
             double.TryParse(node.GetValue("noCaretakerTimer"), out d.NoCaretakerTimer);

@@ -374,13 +374,8 @@ namespace BreedTheKerbal
 
         private static void BoardNewbornIntoHabitat(ProtoCrewMember newborn, Vessel vessel)
         {
-            // Must be Assigned before adding to any part/snapshot
-            newborn.rosterStatus = ProtoCrewMember.RosterStatus.Assigned;
-
             if (vessel.loaded)
             {
-                // Active vessel in the flight scene — use live Part API
-                // FindHabitatPart already guarantees a part with free space
                 Part habitat = FindHabitatPart(vessel);
                 Debug.Log($"[BreedTheKerbal] BoardNewborn (loaded): habitat={(habitat == null ? "null" : habitat.partInfo.name + " " + habitat.protoModuleCrew.Count + "/" + habitat.CrewCapacity)}");
                 if (habitat == null)
@@ -389,23 +384,35 @@ namespace BreedTheKerbal
                     Debug.Log("[BreedTheKerbal] BoardNewborn: no free seat on loaded vessel — newborn stays Available");
                     return;
                 }
+                newborn.rosterStatus = ProtoCrewMember.RosterStatus.Assigned;
                 habitat.AddCrewmember(newborn);
-                vessel.BackupVessel();   // sync live parts → ProtoVessel before any save
+                vessel.BackupVessel();
                 GameEvents.onVesselCrewWasModified.Fire(vessel);
-                vessel.SpawnCrew();      // refresh IVA models and portrait gallery
+                vessel.SpawnCrew();
             }
             else
             {
-                // Direct ProtoPartSnapshot.protoModuleCrew manipulation on an unloaded vessel
-                // leaves KSP's parallel crewIndices list out of sync, causing
-                // KerbalRoster.ValidateAssignments to throw ArgumentOutOfRangeException on
-                // every subsequent save attempt.  Leave the newborn Available instead —
-                // the player can board them manually via the Astronaut Complex.
-                newborn.rosterStatus = ProtoCrewMember.RosterStatus.Available;
-                Debug.Log("[BreedTheKerbal] BoardNewborn: vessel unloaded — newborn stays Available (board via Astronaut Complex)");
-                ScreenMessages.PostScreenMessage(
-                    $"{newborn.name} was born but the vessel is unloaded — hire from Astronaut Complex to board!",
-                    10f, ScreenMessageStyle.UPPER_CENTER);
+                // For unloaded vessels we manipulate ProtoPartSnapshot directly.
+                // seatIdx MUST be set to the current crew count of the target part
+                // before adding — otherwise KerbalRoster.ValidateAssignments throws
+                // ArgumentOutOfRangeException on every subsequent save.
+                ProtoPartSnapshot snap = FindHabitatSnap(vessel.protoVessel);
+                Debug.Log($"[BreedTheKerbal] BoardNewborn (unloaded): snap={(snap == null ? "null" : snap.partName + " " + snap.protoModuleCrew.Count)}");
+                if (snap == null)
+                {
+                    newborn.rosterStatus = ProtoCrewMember.RosterStatus.Available;
+                    Debug.Log("[BreedTheKerbal] BoardNewborn: no free seat on unloaded vessel — newborn stays Available");
+                    ScreenMessages.PostScreenMessage(
+                        $"{newborn.name} was born but {vessel.vesselName} is full — board from Astronaut Complex!",
+                        10f, ScreenMessageStyle.UPPER_CENTER);
+                    return;
+                }
+                newborn.rosterStatus = ProtoCrewMember.RosterStatus.Assigned;
+                newborn.seatIdx      = snap.protoModuleCrew.Count;
+                newborn.seat         = null;
+                snap.protoModuleCrew.Add(newborn);
+                GameEvents.onVesselCrewWasModified.Fire(vessel);
+                Debug.Log($"[BreedTheKerbal] BoardNewborn (unloaded): {newborn.name} seated at idx {newborn.seatIdx} in {snap.partName}");
             }
         }
 

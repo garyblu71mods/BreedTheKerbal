@@ -500,22 +500,9 @@ namespace BreedTheKerbal
                         ?.FindModuleImplementing<ModuleScienceConverter>();
                     if (prefabConverter == null) continue;
 
-                    // Tylko zdrowi dorośli (nie połóg, nie dzieci) wpływają na wydajność.
-                    float efficiency = crew
-                        .Where(k => IsWorkingAdultForEfficiency(k.name))
-                        .Select(k => GetEfficiencyMultiplier(k.name))
-                        .DefaultIfEmpty(1f)
-                        .Min();
-
-                    // Cache bazowej wartości żeby uniknąć compound-multiply na prefabie.
-                    float baseMult;
-                    if (!_origLabConvMult.TryGetValue(p.persistentId, out baseMult))
-                    {
-                        baseMult = prefabConverter.dataProcessingMultiplier;
-                        _origLabConvMult[p.persistentId] = baseMult;
-                    }
-
-                    converter.dataProcessingMultiplier = baseMult * efficiency;
+                    // Zawsze przywracaj wartość prefabu — mod nie modyfikuje wydajności laba.
+                    // Bonusy naukowców są obliczane przez KSP na podstawie poziomu doświadczenia.
+                    converter.dataProcessingMultiplier = prefabConverter.dataProcessingMultiplier;
                 }
             }
         }
@@ -862,33 +849,24 @@ namespace BreedTheKerbal
 
         private void ApplyHarvesterEfficiency()
         {
+            // Mod nie modyfikuje wydajności harvestera — KSP sam oblicza bonusy od
+            // inżynierów na podstawie ich poziomu doświadczenia.
+            // Przywracamy wartość prefabu na wypadek gdyby wcześniejsza wersja moda
+            // pozostawiła zmodyfikowaną wartość w pamięci.
             if (FlightGlobals.Vessels == null) return;
             foreach (Vessel v in FlightGlobals.Vessels)
             {
                 if (!v.loaded) continue;
-                List<ProtoCrewMember> crew = v.GetVesselCrew();
-                // Tylko zdrowi dorośli (nie połóg, nie dzieci) wpływają na wydajność.
-                // Non-adults i połóg są pomijani — nie obniżają wydajności poniżej bazowej.
-                float efficiency = crew
-                    .Where(k => IsWorkingAdultForEfficiency(k.name))
-                    .Select(k => GetEfficiencyMultiplier(k.name))
-                    .DefaultIfEmpty(1f)
-                    .Min();
                 foreach (Part p in v.Parts)
                 {
                     ModuleResourceHarvester harvester = p.FindModuleImplementing<ModuleResourceHarvester>();
                     if (harvester == null) continue;
 
-                    // Cache the original efficiency on first encounter to avoid
-                    // compound-multiply corruption if partPrefab shares the module reference.
-                    float baseEff;
-                    if (!_origHarvesterEff.TryGetValue(p.persistentId, out baseEff))
-                    {
-                        baseEff = harvester.Efficiency;
-                        _origHarvesterEff[p.persistentId] = baseEff;
-                    }
+                    ModuleResourceHarvester prefabHarvester =
+                        p.partInfo?.partPrefab?.FindModuleImplementing<ModuleResourceHarvester>();
+                    if (prefabHarvester == null) continue;
 
-                    harvester.Efficiency = baseEff * efficiency;
+                    harvester.Efficiency = prefabHarvester.Efficiency;
                 }
             }
         }

@@ -885,21 +885,36 @@ namespace BreedTheKerbal
 
                 if (d.Stage != LifeStage.Adult)
                 {
-                    // Nie-dorośly: blokada na poziom 0
+                    // Nie-dorosły (Newborn/Child/Teenager): level 0 — brak bonusów inżyniera/naukowca
                     if (pcm.experienceLevel != 0)
                         SetExperienceLevel(pcm, 0);
                 }
-                else if (d.IsPregnant
-                    && d.PregnancyTimer <= BreedingConfig.PregnancyDuration / 2.0
-                    && pcm.trait == "Pilot")
+                else if (d.IsPostpartum)
                 {
-                    // Pilot w drugiej połowie ciąży: tylko poziom 1 (podstawowy SAS, brak trybów autopilota)
-                    if (pcm.experienceLevel > 1)
-                        SetExperienceLevel(pcm, 1);
+                    // Połóg: level 0 — brak wkładu do wydobywania/laba
+                    if (pcm.experienceLevel != 0)
+                        SetExperienceLevel(pcm, 0);
+                }
+                else if (d.IsPregnant && d.PregnancyTimer <= BreedingConfig.PregnancyDuration / 2.0)
+                {
+                    if (pcm.trait == "Pilot")
+                    {
+                        // Pilot w drugiej połowie ciąży: tylko poziom 1 (podstawowy SAS)
+                        if (pcm.experienceLevel > 1)
+                            SetExperienceLevel(pcm, 1);
+                    }
+                    else
+                    {
+                        // Inżynier/Naukowiec w drugiej połowie ciąży: ~40% normalnego levelu
+                        int fullLevel = LevelFromExperience(pcm.experience);
+                        int reduced  = (int)Math.Round(fullLevel * BreedingConfig.LatePregnancyEfficiency);
+                        if (pcm.experienceLevel != reduced)
+                            SetExperienceLevel(pcm, reduced);
+                    }
                 }
                 else
                 {
-                    // Dorośla bez ograniczeń: przywróć poziom jeśli został przez nas obniżony
+                    // Zdrowy dorosły: przywróć pełny poziom z XP
                     int expected = LevelFromExperience(pcm.experience);
                     if (pcm.experienceLevel < expected)
                         SetExperienceLevel(pcm, expected);

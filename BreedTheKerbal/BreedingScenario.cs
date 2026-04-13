@@ -34,6 +34,11 @@ namespace BreedTheKerbal
         // Teenager 50 % XP: alternate keep / remove for each flight-log entry (per kerbal)
         private readonly Dictionary<string, bool> _teenXpAllow = new Dictionary<string, bool>();
 
+        // Cache of original harvester Efficiency values keyed by Part.persistentId.
+        // Prevents compound-multiply corruption when partPrefab shares module references.
+        private readonly Dictionary<uint, float> _origHarvesterEff  = new Dictionary<uint, float>();
+        private readonly Dictionary<uint, float> _origLabConvMult   = new Dictionary<uint, float>();
+
         private const double KerbinDay         = 21600.0;
         private const float  LabUpdateInterval = 1f;
         private const float  ExpUpdateInterval = 5f;
@@ -495,12 +500,22 @@ namespace BreedTheKerbal
                         ?.FindModuleImplementing<ModuleScienceConverter>();
                     if (prefabConverter == null) continue;
 
+                    // Tylko zdrowi dorośli (nie połóg, nie dzieci) wpływają na wydajność.
                     float efficiency = crew
+                        .Where(k => IsWorkingAdultForEfficiency(k.name))
                         .Select(k => GetEfficiencyMultiplier(k.name))
                         .DefaultIfEmpty(1f)
                         .Min();
 
-                    converter.dataProcessingMultiplier = prefabConverter.dataProcessingMultiplier * efficiency;
+                    // Cache bazowej wartości żeby uniknąć compound-multiply na prefabie.
+                    float baseMult;
+                    if (!_origLabConvMult.TryGetValue(p.persistentId, out baseMult))
+                    {
+                        baseMult = prefabConverter.dataProcessingMultiplier;
+                        _origLabConvMult[p.persistentId] = baseMult;
+                    }
+
+                    converter.dataProcessingMultiplier = baseMult * efficiency;
                 }
             }
         }
@@ -694,6 +709,17 @@ namespace BreedTheKerbal
             return true;
         }
 
+        // Zwraca true jeśli Kerbal "pracuje" i może wpływać na wydajność lab/harvestera.
+        // Non-adults i połóg są przezroczyste — nie obniżają wydajności statku.
+        private bool IsWorkingAdultForEfficiency(string kerbalName)
+        {
+            KerbalLifeData d = GetData(kerbalName);
+            if (d == null) return true;           // nieznany = dorosły
+            if (d.Stage != LifeStage.Adult) return false;  // dziecko/nastolatek = pomiń
+            if (d.IsPostpartum)            return false;  // połóg = pomiń
+            return true;
+        }
+
         public float GetEfficiencyMultiplier(string kerbalName)
         {
             KerbalLifeData d = GetData(kerbalName);
@@ -841,7 +867,10 @@ namespace BreedTheKerbal
             {
                 if (!v.loaded) continue;
                 List<ProtoCrewMember> crew = v.GetVesselCrew();
+                // Tylko zdrowi dorośli (nie połóg, nie dzieci) wpływają na wydajność.
+                // Non-adults i połóg są pomijani — nie obniżają wydajności poniżej bazowej.
                 float efficiency = crew
+                    .Where(k => IsWorkingAdultForEfficiency(k.name))
                     .Select(k => GetEfficiencyMultiplier(k.name))
                     .DefaultIfEmpty(1f)
                     .Min();
@@ -849,10 +878,17 @@ namespace BreedTheKerbal
                 {
                     ModuleResourceHarvester harvester = p.FindModuleImplementing<ModuleResourceHarvester>();
                     if (harvester == null) continue;
-                    ModuleResourceHarvester prefab = p.partInfo?.partPrefab
-                        ?.FindModuleImplementing<ModuleResourceHarvester>();
-                    if (prefab == null) continue;
-                    harvester.Efficiency = prefab.Efficiency * efficiency;
+
+                    // Cache the original efficiency on first encounter to avoid
+                    // compound-multiply corruption if partPrefab shares the module reference.
+                    float baseEff;
+                    if (!_origHarvesterEff.TryGetValue(p.persistentId, out baseEff))
+                    {
+                        baseEff = harvester.Efficiency;
+                        _origHarvesterEff[p.persistentId] = baseEff;
+                    }
+
+                    harvester.Efficiency = baseEff * efficiency;
                 }
             }
         }

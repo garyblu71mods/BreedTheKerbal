@@ -24,6 +24,11 @@ Colony Manager -> select a pair -> **Start Pregnancy**
 **Automatic:**
 Set `AutoBreeding = true` in `BreedTheKerbal.cfg`
 
+> **Birth on a background vessel:** If a birth occurs while you are flying a different ship,
+> the newborn boards the mother's vessel automatically (handled via save-state).
+> Switching to that vessel will also re-board any newborn that ended up in the Astronaut Complex
+> on older saves.
+
 ---
 
 ## Life Stages

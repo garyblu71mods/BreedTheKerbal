@@ -51,6 +51,7 @@ namespace BreedTheKerbal
             GameEvents.onCrewOnEva     .Add(OnCrewOnEva);
             GameEvents.onCrewTransferred.Add(OnCrewTransferred);
             GameEvents.OnFlightLogRecorded.Add(OnFlightLogRecorded);
+            GameEvents.onVesselLoaded  .Add(OnBTKVesselLoaded);
         }
 
         private void OnDestroy()
@@ -59,6 +60,7 @@ namespace BreedTheKerbal
             GameEvents.onCrewOnEva     .Remove(OnCrewOnEva);
             GameEvents.onCrewTransferred.Remove(OnCrewTransferred);
             GameEvents.OnFlightLogRecorded.Remove(OnFlightLogRecorded);
+            GameEvents.onVesselLoaded  .Remove(OnBTKVesselLoaded);
             if (Instance == this) Instance = null;
         }
 
@@ -575,6 +577,35 @@ namespace BreedTheKerbal
                 ScreenMessages.PostScreenMessage(
                     $"{action.host.name} cannot be moved without an adult present!",
                     5f, ScreenMessageStyle.UPPER_CENTER);
+        }
+
+        // When a vessel finishes loading, check if any non-adult Kerbal that belongs
+        // on it (mother is on board) is still sitting Available in the Astronaut Complex
+        // because they were born while the vessel was unloaded.  Board them now.
+        private void OnBTKVesselLoaded(Vessel vessel)
+        {
+            if (vessel == null) return;
+            List<ProtoCrewMember> vesselCrew = vessel.GetVesselCrew();
+
+            foreach (KerbalLifeData data in _kerbalData.Values.ToList())
+            {
+                if (data.Stage == LifeStage.Adult) continue;
+
+                ProtoCrewMember kerbal = HighLogic.CurrentGame.CrewRoster[data.KerbalName];
+                if (kerbal == null || kerbal.rosterStatus != ProtoCrewMember.RosterStatus.Available) continue;
+
+                // The child belongs on this vessel if their mother is currently on it
+                if (string.IsNullOrEmpty(data.MotherName)) continue;
+                if (!vesselCrew.Any(c => c.name == data.MotherName)) continue;
+
+                Debug.Log($"[BreedTheKerbal] OnVesselLoaded: retroactive boarding {kerbal.name} onto {vessel.vesselName}");
+                BoardNewbornIntoHabitat(kerbal, vessel);
+
+                if (kerbal.rosterStatus == ProtoCrewMember.RosterStatus.Assigned)
+                    ScreenMessages.PostScreenMessage(
+                        $"{kerbal.name} has boarded {vessel.vesselName}.",
+                        8f, ScreenMessageStyle.UPPER_CENTER);
+            }
         }
 
         private void OnFlightLogRecorded(Vessel vessel)

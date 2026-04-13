@@ -1,93 +1,146 @@
 # BreedTheKerbal — Quick Guide
 
-## Wymagania
-- KSP 1.x (testowane na 1.12)
-- Brak zewnętrznych zależności — tylko vanilla KSP
+## Requirements
+- KSP 1.x (tested on 1.12)
+- No external dependencies — vanilla KSP only
 
-## Instalacja
-1. Skopiuj `BreedTheKerbal.dll` i `BreedTheKerbal.cfg` do `GameData/BreedTheKerbal/`
-2. Gotowe — przycisk **Colony Manager** pojawia się na pasku narzędzi
+## Installation
+1. Copy `BreedTheKerbal.dll` and `BreedTheKerbal.cfg` into `GameData/BreedTheKerbal/`
+2. Done — the **Colony Manager** button appears in the toolbar
 
 ---
 
-## Jak zacząć hodować
+## Getting Started
 
-**Wymagania pojazdu:**
-- Part z pojemnością ≥ 4 miejsc
+**Vessel requirements:**
+- A part with crew capacity >= 4
 - Science Lab
-- Dorosły mężczyzna + dorosła kobieta (nie ciężarna, nie po porodzie)
-- ≥ 1 wolne miejsce
+- One adult male + one adult female (not pregnant, not postpartum)
+- >= 1 free seat
 
-**Ręczne parowanie** (domyślne):  
-Colony Manager → wybierz parę → **Start Pregnancy**
+**Manual pairing** (default):
+Colony Manager -> select a pair -> **Start Pregnancy**
 
-**Automatyczne:**  
-Ustaw `AutoBreeding = true` w `BreedTheKerbal.cfg`
+**Automatic:**
+Set `AutoBreeding = true` in `BreedTheKerbal.cfg`
+
+> **Birth on a background vessel:** If a birth occurs while you are flying a different ship,
+> the newborn boards the mother's vessel automatically (handled via save-state).
+> Switching to that vessel will also re-board any newborn that ended up in the Astronaut Complex
+> on older saves.
 
 ---
 
-## Etapy życia
+## Life Stages
 
-```
-Narodziny → Newborn (50 dni) → Child (100 dni) → Teenager (150 dni) → Adult
-```
-*(1 dzień Kerbina = 6 h rzeczywistego czasu)*
+Birth -> Newborn (50 days) -> Child (100 days) -> Teenager (150 days) -> Adult
 
-| Etap | EVA | Lab/Harvester | Pilot |
+*(1 Kerbin day = 6 h real time)*
+
+| Stage | EVA | Lab / Harvester | Pilot |
 |---|---|---|---|
-| Newborn | ❌ | 0% | 0 gwiazdek |
-| Child | ❌ | 25% | 0 gwiazdek |
-| Teenager (z opiekunem) | ✅ | 50% | 0 gwiazdek |
-| Teenager (bez opiekuna) | ❌ | 20% | 0 gwiazdek |
-| Pregnant — 1. połowa | ✅ | 100% | pełna |
-| Pregnant — 2. połowa | ❌ | 40% | poziom 1 |
-| Postpartum (10 dni) | ❌ | 0% | — |
+| Newborn | No | 0% | 0 stars |
+| Child | No | 25% | 0 stars |
+| Teenager (with caretaker) | Yes | 50% | 0 stars |
+| Teenager (no caretaker) | No | 20% | 0 stars |
+| Pregnant - 1st half | Yes | 100% | full |
+| Pregnant - 2nd half | No | 40% | level 1 |
+| Postpartum (10 days) | No | 0% | -- |
 
 ---
 
-## Opiekun (caretaker)
+## Aging Speed Bonuses
 
-Newborn i Child **muszą mieć dorosłego** na tym samym pojeździe.
+Non-adult Kerbals age faster (or slower) depending on conditions.
+The **+X%** column in Colony Manager shows the net modifier — click it for a full breakdown.
 
-| Etap | Brak opiekuna → |
+| Condition | Effect |
 |---|---|
-| Newborn | śmierć po **5 dniach** |
-| Child | śmierć po **15 dniach** |
-| Teenager | wydajność spada do 20%, EVA zablokowane |
+| Each Cupola Module on vessel (max 3) | +5% per cupola |
+| Vessel landed or splashed | +10% |
+| Active CommNet connection to home | +2% |
+| Scientist as best adult on board | +5% |
+| Engineer as best adult on board | +3% |
+| Both biological parents on board | +5% |
+| No biological parents on board | −5% |
+| Crew > 75% of vessel capacity | −5% |
+| Low Support active (career) | −10% |
 
-> Czerwony pasek i odliczanie w Colony Manager pokazują czas do śmierci.
+*(Base aging speed = 100 %. Modifiers are additive. Negative total slows aging.)*
 
 ---
 
-## Tryb kariery — koszty dzienne
+## Caretaker
 
-| Etap | Koszt/dzień |
+Newborns and Children **must have an adult** on the same vessel.
+
+| Stage | Without caretaker |
 |---|---|
-| Newborn | 150 funduszy |
-| Child | 100 funduszy |
-| Teenager | 50 funduszy |
+| Newborn | death after **5 days** |
+| Child | death after **15 days** |
+| Teenager | efficiency drops to 20%, EVA blocked |
 
-Brak funduszy → **LOW SUPPORT** → Child 20%, Teenager 35%
+A red bar and countdown in Colony Manager show time remaining until death.
+
+---
+
+## Career Mode - Daily Upkeep
+
+| Stage | Cost / day |
+|---|---|
+| Newborn | 150 funds |
+| Child | 100 funds |
+| Teenager | 50 funds |
+
+Insufficient funds -> **LOW SUPPORT** -> Child 20%, Teenager 35%, aging speed −10%
 
 ---
 
 ## Colony Manager
 
-- Hover nad **nazwą Kerbala** → tooltip ze statusem, karą i odliczaniem
-- Hover nad **LOW SUPPORT** → szczegóły braku funduszy
-
----
-
-## Konfiguracja (`BreedTheKerbal.cfg`)
-
-Edytuj i zrestartuj KSP — bez rekompilacji.  
-Wszystkie czasy w sekundach Kerbina (`1 dzień = 21 600 s`).
-
----
-
-## Skróty debugowe (tylko Debug build)
-
-| Skrót | Akcja |
+| Click target | Result |
 |---|---|
-| `Alt + Shift + B` | Wyświetl statusy wszystkich Kerbali |
-| `Alt + Shift + N` | Przesuń nie-dorosłych o jeden etap do przodu |
+| **Kerbal name** | Popup: parents, trait, experience stars |
+| **+X% / ±0%** bonus label | Popup: per-factor aging speed breakdown |
+| **LOW SUPPORT** badge (hover) | Tooltip: funding shortfall details |
+| **Kerbal name** (hover) | Tooltip: full status, active penalty, countdown |
+
+Popups close when clicking outside or clicking the same label again.
+
+---
+
+## Configuration (BreedTheKerbal.cfg)
+
+Edit and restart KSP — no recompile needed.
+All durations in Kerbin seconds (1 day = 21 600 s).
+
+| Key | Production default | Description |
+|---|---|---|
+| `PregnancyDuration` | 648000 | 30 Kerbin days |
+| `PostpartumDuration` | 216000 | 10 days |
+| `NewbornDuration` | 1080000 | 50 days |
+| `ChildDuration` | 2160000 | 100 days |
+| `TeenagerDuration` | 3240000 | 150 days |
+| `NewbornDeathTimer` | 108000 | 5 days without caretaker |
+| `ChildDeathTimer` | 324000 | 15 days without caretaker |
+| `CupolaAgingBonusPerUnit` | 0.05 | +5% aging per cupola |
+| `CupolaAgingMaxCount` | 3 | Max cupolas counted |
+| `LandedAgingBonus` | 0.10 | +10% when landed/splashed |
+| `CommNetBonus` | 0.02 | +2% when connected to home |
+| `BothParentsAgingBonus` | 0.05 | +5% with both parents |
+| `NoParentsAgingPenalty` | 0.05 | −5% with no parents |
+| `ScientistCaretakerBonus` | 0.05 | +5% — Scientist caretaker |
+| `EngineerCaretakerBonus` | 0.03 | +3% — Engineer caretaker |
+| `OvercrowdingThreshold` | 0.75 | Ratio above which penalty applies |
+| `OvercrowdingPenalty` | 0.05 | −5% when overcrowded |
+| `LowSupportAgingPenalty` | 0.10 | −10% aging when Low Support |
+| `AutoBreeding` | false | Enable automatic pairing |
+
+---
+
+## Debug Shortcuts (Debug build only)
+
+| Shortcut | Action |
+|---|---|
+| Alt + Shift + B | Print all Kerbal life-stage statuses to screen |
+| Alt + Shift + N | Advance all non-adults one stage forward |

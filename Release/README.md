@@ -73,7 +73,6 @@ They can be changed in `BreedTheKerbal.cfg` without recompiling.
 - EVA button **grayed out** when no adult is on EVA within 200 m.
 - When a chaperone IS on EVA the button becomes available.
 - If the chaperone **boards back** while the teen is on EVA:
-  - SAS is disabled immediately.
   - Jetpack thrust drops to **2%** of normal (translation still works).
 - Experience level forced to **0**.
 - Efficiency 50% with caretaker on vessel, 20% without.
@@ -114,7 +113,9 @@ Any loaded vessel meeting all conditions will automatically pair once per update
 ```
 Pregnant --(30 days)--> Birth --(10 days postpartum)--> Adult again
                            |
-                           +-> New Kerbal spawned on vessel (or Available if no free seat)
+                           +-> Newborn boards the vessel automatically
+                               (loaded or unloaded — both handled)
+                               If no free seat: stays Available in Astronaut Complex
 ```
 
 | Phase | EVA | Efficiency | Pilot SAS |
@@ -122,6 +123,15 @@ Pregnant --(30 days)--> Birth --(10 days postpartum)--> Adult again
 | First half (days 0-15) | Yes | 100% | Full |
 | Second half (days 15-30) | No | 40% | Level 1 only |
 | Postpartum (10 days) | No | 0% | — |
+
+### Birth on an unloaded vessel
+
+If a birth occurs while the mother's vessel is **not the active vessel**, the newborn is placed
+directly into the vessel's `ProtoVessel` (no free seat required to be present in IVA).
+When you later **switch to that vessel**, the newborn is already on board.
+
+If the newborn ended up in the Astronaut Complex due to an older save, switching to the
+vessel where the mother is will **automatically re-board** the child.
 
 ---
 
@@ -165,17 +175,50 @@ LOW SUPPORT clears immediately once funds exceed the daily cost.
 
 ---
 
+## Aging Speed Bonuses
+
+Non-adult Kerbals accumulate age at a speed that can be raised or lowered by vessel conditions.
+The **Colony Manager** shows the net modifier in the `+X%` column next to each Kerbal.
+Click the `+X%` label to open a per-factor breakdown popup.
+
+| Condition | Modifier |
+|---|---|
+| Each Cupola Module on vessel (max 3) | +5% per cupola |
+| Vessel landed or splashed | +10% |
+| Active CommNet connection to home | +2% |
+| Scientist as best caretaker-adult on vessel | +5% |
+| Engineer as best caretaker-adult on vessel | +3% |
+| Both biological parents on same vessel | +5% |
+| No biological parents on vessel | −5% |
+| Crew count > 75% of vessel capacity | −5% |
+| Low Support active | −10% |
+
+Modifiers are **additive**. A negative total slows aging below base rate.
+All thresholds and values are configurable in `BreedTheKerbal.cfg`.
+
+---
+
 ## Colony Manager UI
 
 - Toolbar button: **Flight** and **Space Centre** scenes.
-- Per-vessel list with stage badge, progress bar, **efficiency %** (orange = penalty, red = 0%), and time remaining.
-- **Hover over a Kerbal name** — tooltip shows:
-  - Stage, trait, experience stars, current efficiency
-  - Active penalty description in **orange** (e.g. "Child: EVA blocked, 25% efficiency")
-  - **Caretaker death countdown in red** if Newborn/Child has no adult on vessel
-  - Time until next life stage / birth / recovery
-- **Hover over LOW SUPPORT badge** — shows penalty breakdown and how to fix.
-- Pairing panel (manual mode): male / female dropdowns + **Start Pregnancy** button.
+- Per-vessel list with stage badge, progress bar, **efficiency %** (orange = penalty, red = 0%), time remaining, and aging speed bonus column.
+
+### Click interactions
+
+| Click target | Result |
+|---|---|
+| **Kerbal name** | Popup — parents' names, trait, experience stars |
+| **+X% / ±0%** aging label | Popup — per-factor aging speed breakdown with total |
+| Clicking outside a popup | Closes the popup |
+
+### Hover interactions
+
+| Hover target | Result |
+|---|---|
+| **Kerbal name** | Tooltip — stage, trait, stars, efficiency, active penalty, caretaker death countdown |
+| **LOW SUPPORT** badge | Tooltip — penalty breakdown and how to fix |
+
+- Pairing panel (manual mode): male / female selectors + **Start Pregnancy** button.
 
 ---
 
@@ -206,6 +249,17 @@ All durations in **Kerbin seconds** (1 Kerbin day = 21 600 s).
 | `TeenagerDailyCost` | 50 | Career funds / Kerbin day (Teenager) |
 | `HabitatMinCrewCapacity` | 4 | Minimum part crew capacity for habitat |
 | `AutoBreeding` | false | Enable automatic pairing |
+| `CupolaAgingBonusPerUnit` | 0.05 | Aging bonus per Cupola Module (+5%) |
+| `CupolaAgingMaxCount` | 3 | Maximum cupolas counted toward the bonus |
+| `LandedAgingBonus` | 0.10 | Bonus when landed or splashed (+10%) |
+| `CommNetBonus` | 0.02 | Bonus when connected to home via CommNet (+2%) |
+| `BothParentsAgingBonus` | 0.05 | Bonus when both parents are on board (+5%) |
+| `NoParentsAgingPenalty` | 0.05 | Penalty when no parents are on board (−5%) |
+| `ScientistCaretakerBonus` | 0.05 | Bonus for Scientist as best adult caretaker (+5%) |
+| `EngineerCaretakerBonus` | 0.03 | Bonus for Engineer as best adult caretaker (+3%) |
+| `OvercrowdingThreshold` | 0.75 | Crew/capacity ratio above which penalty applies |
+| `OvercrowdingPenalty` | 0.05 | Penalty when vessel is overcrowded (−5%) |
+| `LowSupportAgingPenalty` | 0.10 | Aging speed penalty when Low Support is active (−10%) |
 
 ---
 
@@ -215,6 +269,25 @@ All durations in **Kerbin seconds** (1 Kerbin day = 21 600 s).
 |---|---|
 | Alt + Shift + B | Print all Kerbal life-stage statuses to screen |
 | Alt + Shift + N | Advance all non-adult Kerbals one stage forward |
+
+---
+
+## Changelog
+
+### v1.0.1 (pending release)
+- **Fix:** Newborn now boards correctly when the mother's vessel was unloaded at birth (`ProtoPartSnapshot.seatIdx` fix).
+- **Fix:** Retroactive boarding — switching to the vessel where the mother lives auto-boards any newborn that previously ended up in the Astronaut Complex.
+
+### v1.0.0-beta
+- Initial public beta release.
+- Full life-stage system: Newborn / Child / Teenager / Adult.
+- Pregnancy and postpartum mechanics.
+- Caretaker death timers.
+- Aging speed bonus system (9 modifiers).
+- Career mode daily upkeep with Low Support fallback.
+- Parents & aging breakdown popups.
+- AutoBreeding option.
+- Custom toolbar icon (`BTK_icon.png`).
 
 ---
 

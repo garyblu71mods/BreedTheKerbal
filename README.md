@@ -113,7 +113,9 @@ Any loaded vessel meeting all conditions will automatically pair once per update
 ```
 Pregnant --(30 days)--> Birth --(10 days postpartum)--> Adult again
                            |
-                           +-> New Kerbal spawned on vessel (or Available if no free seat)
+                           +-> Newborn boards the vessel automatically
+                               (loaded or unloaded — both handled)
+                               If no free seat: stays Available in Astronaut Complex
 ```
 
 | Phase | EVA | Efficiency | Pilot SAS |
@@ -121,6 +123,15 @@ Pregnant --(30 days)--> Birth --(10 days postpartum)--> Adult again
 | First half (days 0-15) | Yes | 100% | Full |
 | Second half (days 15-30) | No | 40% | Level 1 only |
 | Postpartum (10 days) | No | 0% | — |
+
+### Birth on an unloaded vessel
+
+If a birth occurs while the mother's vessel is **not the active vessel**, the newborn is placed
+directly into the vessel's `ProtoVessel` (no free seat required to be present in IVA).
+When you later **switch to that vessel**, the newborn is already on board.
+
+If the newborn ended up in the Astronaut Complex due to an older save, switching to the
+vessel where the mother is will **automatically re-board** the child.
 
 ---
 
@@ -258,6 +269,25 @@ All durations in **Kerbin seconds** (1 Kerbin day = 21 600 s).
 |---|---|
 | Alt + Shift + B | Print all Kerbal life-stage statuses to screen |
 | Alt + Shift + N | Advance all non-adult Kerbals one stage forward |
+
+---
+
+## Changelog
+
+### v1.0.1 (pending release)
+- **Fix:** Newborn now boards correctly when the mother's vessel was unloaded at birth (`ProtoPartSnapshot.seatIdx` fix).
+- **Fix:** Retroactive boarding — switching to the vessel where the mother lives auto-boards any newborn that previously ended up in the Astronaut Complex.
+
+### v1.0.0-beta
+- Initial public beta release.
+- Full life-stage system: Newborn / Child / Teenager / Adult.
+- Pregnancy and postpartum mechanics.
+- Caretaker death timers.
+- Aging speed bonus system (9 modifiers).
+- Career mode daily upkeep with Low Support fallback.
+- Parents & aging breakdown popups.
+- AutoBreeding option.
+- Custom toolbar icon (`BTK_icon.png`).
 
 ---
 
